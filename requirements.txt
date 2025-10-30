@@ -12,6 +12,8 @@ cffi==2.0.0 ; platform_python_implementation != 'PyPy'
     # via cryptography
 charset-normalizer==3.4.4
     # via requests
+colorama==0.4.6 ; sys_platform == 'win32'
+    # via loguru
 constantly==23.10.4
     # via twisted
 cryptography==46.0.3
@@ -46,6 +48,8 @@ jmespath==1.0.1
     # via
     #   itemloaders
     #   parsel
+loguru==0.7.3
+    # via -r requirements.in
 lxml==6.0.2
     # via
     #   parsel
@@ -114,6 +118,8 @@ w3lib==2.3.1
     # via
     #   parsel
     #   scrapy
+win32-setctime==1.2.0 ; sys_platform == 'win32'
+    # via loguru
 zope-interface==8.0.1
     # via
     #   scrapy
