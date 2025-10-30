@@ -11,6 +11,9 @@ visualização dos dados.
 
 ## Executando o projeto
 
+- Acesse o diretório `cd src/scraper`
+- Execute `scrapy crawl janus_disciplinas -o output.csv`
+
 ## Debugando
 
 Para desenvolver os scrapers é recomendado acessar a página do Janus via o seguinte comando:

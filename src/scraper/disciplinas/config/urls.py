@@ -14,7 +14,10 @@ Exemplo de fluxo de URLs acessadas:
 3. Páginas das disciplinas oferecidas (DCV5842 - Aspectos Fundamentais de Direito Civil)
 """
 
-COMISSAO_POS_GRADUACAO_URL = "https://uspdigital.usp.br/janus/componente/disciplinasOferecidasInicial.jsf"
+BASE_URL = "https://uspdigital.usp.br/janus/componente/disciplinasOferecidasInicial.jsf"
+
+# Url depois de submeter o form que retorna a lista de comissões de pós-graduação
+COMISSAO_POS_GRADUACAO_URL = "https://uspdigital.usp.br/janus/CPGLista"
 
 AREAS_DE_CONCENTRACAO_URL_TEMPLATE = (
     "https://uspdigital.usp.br/janus/componente/disciplinasOferecidas.jsf"
