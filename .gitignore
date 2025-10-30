@@ -1,1 +1,3 @@
 venv
+.scrapy
+__pycache__
