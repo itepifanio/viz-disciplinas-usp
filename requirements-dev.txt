@@ -124,3 +124,5 @@ zope-interface==8.0.1
     # via
     #   scrapy
     #   twisted
+
+sentence_transformers==5.1.2
