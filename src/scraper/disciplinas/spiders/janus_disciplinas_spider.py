@@ -250,6 +250,9 @@ class JanusDisciplinasSpider(Spider):
                 f"{codigo_disciplina} - {nome_disciplina}"
                 f"foi extraido {response.css('table.dataTable.selecionavel > tr td::text').getall()}"
             )
+            ch_teorica = ''
+            ch_pratica = ''
+            ch_estudo = ''
 
         try:
             carga_horaria_teorica = int(ch_teorica.strip())
@@ -265,13 +268,15 @@ class JanusDisciplinasSpider(Spider):
         for p_element in p_elements:
             topico = p_element.css("strong::text").get(default='').strip()
 
+            valor_texto = p_element.xpath("./strong/following-sibling::text()").get(default='').strip()
+
             if topico == "Criação:":
-                ementa_criacao = p_element.css("::text").get(default='').strip()
-            elif topico == "Nº de Créditos:":
-                numero_creditos_text = p_element.css("::text").get(default='').strip()
+                ementa_criacao = valor_texto
+            elif topico == "Nr. de Créditos:" or topico == "Nº de Créditos:":
                 try:
-                    numero_creditos = int(numero_creditos_text)
+                    numero_creditos = int(valor_texto) # Corrigido!
                 except ValueError:
+                    logger.warning(f"Não foi possível converter n_creditos para int: '{valor_texto}'")
                     numero_creditos = None
 
         docentes_nodes = response.xpath(
@@ -313,4 +318,10 @@ class JanusDisciplinasSpider(Spider):
             'bibliografia': ementa_bibliografia,
             'idioma': ementa_idiomas,
             'oferecimento': ementa_tipo_oferecimentos,
+            'codigo_area_concentracao': codigo_area_concentracao,
+            'area_concentracao': nome_area_concentracao,
+            'codigo_commissao': codigo_comissao,
+            'commissao': nome_comissao,
+            'codigo_programa': codigo_programa,
+            'nome_programa': nome_programa,
         }
