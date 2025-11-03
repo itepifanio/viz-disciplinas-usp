@@ -12,7 +12,13 @@ visualização dos dados.
 ## Executando o projeto
 
 - Acesse o diretório `cd src/scraper`
-- Execute `scrapy crawl janus_disciplinas -o output.csv`
+- Execute `scrapy crawl janus_disciplinas -o ../../nbs/output.json`
+
+## Analisando os dados
+
+- Execute `jupyter-lab` na raíz do projeto, um servidor irá inicializar
+- Acesse o servidor através do seu browser e navegue até a pasta `nbs` para executar os
+  notebooks
 
 ## Debugando
 
