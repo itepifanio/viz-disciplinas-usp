@@ -124,3 +124,18 @@ zope-interface==8.0.1
     # via
     #   scrapy
     #   twisted
+sentence_transformers==5.1.2
+    # via
+    #   torch
+
+narwhals==2.10.1 
+
+plotly==6.3.1
+
+umap_learn==0.5.9
+
+python-louvain==0.16
+
+wordcloud==1.9.4
+
+nltk==3.9.2
