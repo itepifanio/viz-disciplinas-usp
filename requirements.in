@@ -8,3 +8,4 @@ umap_learn>=0.5.9
 python-louvain>=0.16
 wordcloud>=1.9.4
 nltk>=3.9.2
+streamlit

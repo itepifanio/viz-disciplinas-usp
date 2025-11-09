@@ -20,6 +20,15 @@ visualização dos dados.
 - Acesse o servidor através do seu browser e navegue até a pasta `nbs` para executar os
   notebooks
 
+## Executando o streamlit app
+
+A aplicação streamlit tem seus dados baixados, pre-processamentos executados antes de ser
+ativada. Todos esses comportamentos são encapsulados via o seguinte comando:
+
+```
+python cli.py preview
+```
+
 ## Debugando
 
 Para desenvolver os scrapers é recomendado acessar a página do Janus via o seguinte comando:
