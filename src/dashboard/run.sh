@@ -8,4 +8,4 @@ if [ ! -f "nbs/output.json" ]; then
 fi
 
 echo "Starting Streamlit app..."
-streamlit run src/streamlit/app.py
+streamlit run src/dashboard/app.py

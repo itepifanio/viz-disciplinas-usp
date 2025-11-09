@@ -1,0 +1,12 @@
+"""
+Streamlit page entrypoint.
+"""
+
+import streamlit as st
+
+disciplinas_page = st.Page("disciplinas.py", title="Disciplinas", icon="📖")
+embeddings_page = st.Page("embeddings.py", title="Embeddings", icon="🕸️")
+
+pg = st.navigation([disciplinas_page, embeddings_page])
+
+pg.run()

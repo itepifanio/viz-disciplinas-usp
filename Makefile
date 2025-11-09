@@ -10,4 +10,4 @@ lock-dev: requirements-dev.in requirements.in
 lock-all: lock lock-dev
 
 preview:
-	bash src/streamlit/run.sh
+	bash src/dashboard/run.sh
