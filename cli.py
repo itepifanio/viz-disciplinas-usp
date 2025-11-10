@@ -2,7 +2,7 @@
 
 import argparse
 import subprocess
-from pathlib import Path
+import sys
 
 def lock():
     command = 'uv pip compile requirements.in --universal --output-file requirements.txt'.split(" ")
@@ -22,7 +22,7 @@ def lock_all():
 
 def preview():
     """Run the dashboard preview"""
-    subprocess.run(['python3', 'src/dashboard/run.py'], check=True)
+    subprocess.run([sys.executable, 'src/dashboard/run.py'], check=True)
 
 def main():
     parser = argparse.ArgumentParser(description='CLI tool for viz-disciplinas-usp project management')
