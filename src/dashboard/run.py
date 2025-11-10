@@ -2,6 +2,7 @@ import os
 import subprocess
 from pathlib import Path
 
+
 def check_data_exists():
     return Path('nbs/output.json').exists()
 
