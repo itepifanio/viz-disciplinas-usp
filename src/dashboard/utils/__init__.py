@@ -3,15 +3,16 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from utils.config import data_path
+from utils.config import scrapper_data_path, preprocessed_data_path
+from utils.data_reader import DataReader
 
 @st.cache_data
 def get_data() -> pd.DataFrame:
-    if not data_path.exists():
-        st.error(f"Ficheiro de dados não encontrado em: {data_path}")
-        return pd.DataFrame()
+    """
+    Read scrapped data and preprocess its values.
+    """
+    return DataReader(scrapper_data_path, preprocessed_data_path).dataframe
 
-    return pd.read_json(data_path)
 
 def num_docentes(series_docentes: pd.Series) -> int:
     docentes_unicos = set()

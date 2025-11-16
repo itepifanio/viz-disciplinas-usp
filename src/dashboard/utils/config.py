@@ -1,3 +1,4 @@
 from pathlib import Path
 
-data_path = Path("nbs/output.json")
+scrapper_data_path = Path("src/data/output.json")
+preprocessed_data_path = Path("src/data/output.pickle")
