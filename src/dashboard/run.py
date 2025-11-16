@@ -12,20 +12,22 @@ def run_scraper():
     try:
         os.chdir('src/scraper')
         subprocess.run(['scrapy', 'crawl', 'janus_disciplinas', '-o', '../data/output.json'], check=True)
-        subprocess.run(['scrapy', 'crawl', 'janus_disciplinas', '-o', '../data/output.json'], check=True)
     finally:
         os.chdir(original_dir)
+
+def preprocess():
+    print("Preprocessing data...")
+    subprocess.run(['python', 'src/dashboard/pipeline.py'], check=True)
 
 def start_streamlit():
     print("Starting Streamlit app...")
     subprocess.run(['streamlit', 'run', 'src/dashboard/app.py'], check=True)
 
-# TODO: 
-# 1. adicionar a geração dos dados de embeddings aqui
-
 def main():
     if not check_data_exists():
         run_scraper()
+
+    preprocess()
     start_streamlit()
 
 if __name__ == '__main__':

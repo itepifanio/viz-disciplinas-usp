@@ -1,10 +1,14 @@
+"""
+Utilidades para o streamlit dashboard.
+"""
+
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from utils.config import scrapper_data_path, preprocessed_data_path
-from utils.data_reader import DataReader
+from utils.config.path import scrapper_data_path, preprocessed_data_path
+from utils.data.reader import DataReader
 
 @st.cache_data
 def get_data() -> pd.DataFrame:
