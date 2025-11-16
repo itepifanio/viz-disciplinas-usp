@@ -1,6 +1,7 @@
 import os
 import subprocess
 from pathlib import Path
+import sys
 
 
 def check_data_exists():
@@ -17,7 +18,7 @@ def run_scraper():
 
 def preprocess():
     print("Preprocessing data...")
-    subprocess.run(['python', 'src/dashboard/pipeline.py'], check=True)
+    subprocess.run([sys.executable, 'src/dashboard/pipeline.py'], check=True)
 
 def start_streamlit():
     print("Starting Streamlit app...")
