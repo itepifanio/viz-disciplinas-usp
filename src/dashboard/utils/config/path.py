@@ -20,3 +20,6 @@ tsne_data_path = BASE_DIR / "tsne.pickle"
 
 # graph html data path
 graph_data_path = BASE_DIR / "graph.graphml"
+
+# community data path
+community_data_path = BASE_DIR / "community.pickle"
