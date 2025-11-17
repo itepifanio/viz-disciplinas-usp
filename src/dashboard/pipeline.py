@@ -11,10 +11,12 @@ import pandas as pd
 
 from transformer.embedding import DataEmbedder
 from transformer.umap import UmapTransformer
+from transformer.tsne import TsneTransformer
 from transformer.graph import KNNGraphBuilder
 from utils.config.model import TEXT_COL, MODEL_EMBEDDING
 from utils.config.path import (
-    umap_data_path, 
+    umap_data_path,
+    tsne_data_path,
     graph_data_path,
     preprocessed_data_path,
     scrapper_data_path
@@ -49,11 +51,12 @@ class DataTransformerPipeline:
         embeddings = embedder.transform() # TODO: improve this API
 
         self._umapper = UmapTransformer(embeddings)
+        self._tsner = TsneTransformer(embeddings)
         node_ids = self._df['codigo'].tolist()
         node_labels = self._df['disciplina'].fillna('Desconhecido').tolist()
         self._grapher = KNNGraphBuilder(
-            embeddings, 
-            node_ids=node_ids, 
+            embeddings,
+            node_ids=node_ids,
             node_labels=node_labels,
         )
 
@@ -61,7 +64,7 @@ class DataTransformerPipeline:
         """
         Executa o pipeline de transformação de dados.
         """
-        if umap_data_path.exists() and graph_data_path.exists():
+        if umap_data_path.exists() and graph_data_path.exists() and tsne_data_path.exists():
             return
 
         self._execute()
@@ -70,6 +73,15 @@ class DataTransformerPipeline:
             extra_cols={ # TODO: avoid hardcoding
                 'codigo': self._df['codigo'],
                 'disciplina': self._df['disciplina'],
+                'commissao': self._df['commissao'],
+            }
+        )
+        self._tsner.to_file(
+            tsne_data_path,
+            extra_cols={
+                'codigo': self._df['codigo'],
+                'disciplina': self._df['disciplina'],
+                'commissao': self._df['commissao'],
             }
         )
         self._grapher.to_file(graph_data_path)
@@ -81,4 +93,4 @@ if __name__ == "__main__":
         output_dataframe_path=preprocessed_data_path
     )
     pipeline = DataTransformerPipeline(reader.dataframe)
-    pipeline()
+    pipeline() # TODO: evitar executar todas as etapas se os arquivos já existirem
