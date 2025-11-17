@@ -56,3 +56,5 @@ def filter_data(
         df_resultado = df_resultado[df_resultado['disciplina'].str.contains(busca, case=False, na=False)]
         
     return df_resultado
+
+
