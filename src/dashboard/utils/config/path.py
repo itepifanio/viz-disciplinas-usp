@@ -17,3 +17,6 @@ umap_data_path = BASE_DIR / "umap.pickle"
 
 # graph html data path
 graph_data_path = BASE_DIR / "graph.graphml"
+
+# community data path
+community_data_path = BASE_DIR / "community.pickle"
