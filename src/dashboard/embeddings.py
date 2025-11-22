@@ -31,20 +31,40 @@ def embedding_plot(
         color_discrete_sequence=px.colors.qualitative.Alphabet,
     )
 
+umap_df = get_data(umap_data_path)
+tsne_df = get_data(tsne_data_path)
+
+all_comissoes = sorted(umap_df['commissao'].unique().tolist())
+comissoes_options = ['All'] + all_comissoes
+
+selected_commissao = st.multiselect(
+    'Selecione uma ou mais comissões para filtrar:',
+    options=comissoes_options,
+    default=[],
+    placeholder='Selecione comissões...'
+)
+
+if 'All' in selected_commissao:
+    filtered_umap_df = umap_df
+    filtered_tsne_df = tsne_df
+else:
+    filtered_umap_df = umap_df[umap_df['commissao'].isin(selected_commissao)]
+    filtered_tsne_df = tsne_df[tsne_df['commissao'].isin(selected_commissao)]
+
 st.plotly_chart(
     embedding_plot(
         title="UMAP Embeddings",
-        df=get_data(umap_data_path),
+        df=filtered_umap_df,
         x_col='umap_x',
         y_col='umap_y',
-    )
+    ),
 )
 
 st.plotly_chart(
     embedding_plot(
         title="t-SNE Embeddings",
-        df=get_data(tsne_data_path),
+        df=filtered_tsne_df,
         x_col='tsne_x',
         y_col='tsne_y',
-    )
+    ),
 )

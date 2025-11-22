@@ -2,7 +2,7 @@ import pandas as pd
 
 import plotly.express as px
 
-def treemap(df: pd.DataFrame) -> px.treemap:
+def treemap(df: pd.DataFrame, col: str) -> px.treemap:
     """
     Create a treemap visualization from the given DataFrame.
 
@@ -16,7 +16,7 @@ def treemap(df: pd.DataFrame) -> px.treemap:
     return px.treemap(
         df,
         path=['commissao', 'area_concentracao', 'disciplina'],
-        values='carga_total',
+        values=col,
         color_continuous_scale='Viridis',
         title='Treemap Visualization'
     )
