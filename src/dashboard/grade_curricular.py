@@ -1,284 +1,315 @@
 """
 Página para selecionar disciplinas por categoria e calcular créditos.
-As seleções são persistentes entre mudanças de filtro.
+Inclui visualização de rede Docentes x Disciplinas corrigida.
 """
 
 import pandas as pd
 import streamlit as st
+import networkx as nx
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 from pathlib import Path
+from streamlit_agraph import agraph, Node, Edge, Config
+
+# Import de configs do projeto
 from utils.config.subjects import obrigatorias, creditos_necessarios, creditos_obrigatorios
 
-# Simula o caminho do arquivo de dados
-DATA_PATH = Path('src/data/output.pickle')
+# --- CAMINHOS DOS ARQUIVOS ---
+DATA_PATH = Path('src/data/grade_horaria/dados_dashboard_completo.pickle')
+GRAPH_PATH = Path('src/data/grade_horaria/grafo_docentes_enrichido.graphml')
+
+# --- FUNÇÕES DE CARREGAMENTO (CACHE) ---
 
 @st.cache_data
 def get_data() -> pd.DataFrame:
-    """
-    Carrega os dados do arquivo pickle.
-    """
+    """Carrega os dados da tabela."""
     if not DATA_PATH.exists():
         st.error(f"Arquivo de dados não encontrado em: {DATA_PATH}")
-        # Retorna um DataFrame vazio com as colunas esperadas para evitar mais erros
-        return pd.DataFrame(columns=[
-            'commissao', 'nome_programa', 'area_concentracao', 
-            'codigo', 'disciplina', 'n_creditos'
-        ])
+        return pd.DataFrame(columns=['commissao', 'nome_programa', 'area_concentracao', 'codigo', 'disciplina', 'n_creditos'])
     try:
         return pd.read_pickle(DATA_PATH)
     except Exception as e:
         st.error(f"Erro ao carregar dados: {e}")
-        return pd.DataFrame(columns=[
-            'commissao', 'nome_programa', 'area_concentracao', 
-            'codigo', 'disciplina', 'n_creditos'
-        ])
+        return pd.DataFrame()
 
-# --- Fim dos Mocks ---
+@st.cache_resource
+def get_full_graph() -> nx.Graph:
+    """Carrega o grafo completo do disco."""
+    if not GRAPH_PATH.exists():
+        return None
+    try:
+        return nx.read_graphml(GRAPH_PATH)
+    except Exception:
+        return None
 
+# --- FUNÇÕES AUXILIARES DO GRAFO ---
+
+def get_hex_color(index):
+    """Gera cor consistente baseada no ID da comunidade."""
+    try:
+        idx = int(index)
+    except:
+        return "#CCCCCC"
+    
+    if idx < 0: return "#CCCCCC"
+    
+    # Paleta 'tab20' tem 20 cores distintas. Cicla se passar de 20.
+    cmap = plt.get_cmap('tab20') 
+    return mcolors.to_hex(cmap(idx % 20))
+
+def renderizar_grafo_interativo(df_filtrado):
+    """
+    Desenha o grafo filtrado estritamente pelas disciplinas visíveis.
+    """
+    G_full = get_full_graph()
+    
+    if G_full is None:
+        st.warning("Arquivo de grafo (.graphml) não encontrado. Rode o pipeline.")
+        return
+
+    # 1. Lista exata de códigos que estão na tabela filtrada
+    codigos_no_filtro = set(df_filtrado['codigo'].astype(str).str.strip())
+    
+    if not codigos_no_filtro:
+        st.info("Nenhuma disciplina no filtro atual.")
+        return
+
+    ag_nodes = []
+    ag_edges = []
+    
+    # Conjuntos para evitar duplicatas na visualização
+    added_nodes = set()
+    added_edges = set()
+
+    # 2. Construção do Subgrafo
+    # Iteramos APENAS sobre os códigos do filtro para garantir que o grafo obedeça a tabela
+    for codigo in codigos_no_filtro:
+        if codigo not in G_full.nodes:
+            continue # Pula se por algum motivo o nó não estiver no grafo
+
+        # --- Adiciona o Nó da Disciplina ---
+        if codigo not in added_nodes:
+            data = G_full.nodes[codigo]
+            
+            # Recupera metadados
+            comm_id = int(data.get('community', -1))
+            color = get_hex_color(comm_id)
+            
+            # Check de Obrigatória (trata string 'True'/'False' ou bool)
+            is_mandatory = data.get('is_mandatory', False)
+            if isinstance(is_mandatory, str):
+                is_mandatory = is_mandatory.lower() == 'true'
+            
+            label_disc = data.get('label', codigo)
+
+            ag_nodes.append(Node(
+                id=codigo,
+                label=codigo, # Mostra o código no nó
+                size=35 if is_mandatory else 20,
+                shape="dot",
+                color=color,
+                borderWidth=3 if is_mandatory else 1,
+                borderColor="#000000" if is_mandatory else color,
+                title=f"Disciplina: {label_disc}\nComunidade: {comm_id}\nObrigatória: {is_mandatory}" # Tooltip
+            ))
+            added_nodes.add(codigo)
+
+        # --- Adiciona os Docentes Conectados ---
+        # Pega vizinhos (no grafo bipartido, vizinhos de disciplina são sempre docentes)
+        for docente_id in G_full.neighbors(codigo):
+            
+            # Adiciona nó do Docente (se ainda não foi adicionado)
+            if docente_id not in added_nodes:
+                ag_nodes.append(Node(
+                    id=docente_id,
+                    label=docente_id,
+                    size=15,
+                    shape="diamond",
+                    color="#444444", # Cinza escuro
+                    title=f"Docente: {docente_id}"
+                ))
+                added_nodes.add(docente_id)
+            
+            # Adiciona Aresta
+            edge_key = tuple(sorted((codigo, docente_id)))
+            if edge_key not in added_edges:
+                ag_edges.append(Edge(
+                    source=codigo, 
+                    target=docente_id, 
+                    color="#EEEEEE"
+                ))
+                added_edges.add(edge_key)
+
+    # 3. Validação de Tamanho
+    if len(ag_nodes) > 200:
+        st.warning(f"⚠️ O grafo possui {len(ag_nodes)} nós. Pode ficar lento. Refine o filtro (ex: filtre por Área de Concentração).")
+
+    # 4. Configuração Visual
+    config = Config(
+        width="100%",
+        height=600,
+        directed=False,
+        physics=True,
+        hierarchy=False,
+        nodeHighlightBehavior=True,
+        highlightColor="#F7A7A6",
+        collapsible=False,
+        physicsOptions={
+            "barnesHut": {
+                "gravitationalConstant": -2000,
+                "centralGravity": 0.3,
+                "springLength": 95
+            },
+            "minVelocity": 0.75
+        }
+    )
+
+    return agraph(nodes=ag_nodes, edges=ag_edges, config=config)
+
+
+# --- INTERFACE PRINCIPAL ---
 
 def setup_new_filters(df):
-    """
-    Cria os filtros de seleção única (Categoria -> Item).
-    """
-    st.subheader("Filtro de Disciplinas")
+    st.subheader("1. Filtros de Busca")
     col1, col2 = st.columns(2)
 
-    # Dicionário para mapear a escolha para a coluna real no DataFrame
     mapa_filtro = {
         'Comissão': 'commissao',
         'Programa': 'nome_programa',
         'Área de Concentração': 'area_concentracao'
     }
 
-    # Seletor 1: Escolher o TIPO de filtro
     with col1:
         tipo_filtro = st.selectbox(
-            "1. Filtrar por:",
+            "Filtrar por:",
             options=['Selecione um tipo', 'Comissão', 'Programa', 'Área de Concentração']
         )
     
     item_selecionado = None
-    
-    # Seletor 2: Escolher o ITEM (baseado no tipo)
     with col2:
         if tipo_filtro == 'Selecione um tipo':
-            st.selectbox(
-                "2. Selecione o item:",
-                options=['--'],
-                disabled=True
-            )
+            st.selectbox("Selecione o item:", options=['--'], disabled=True)
         else:
-            # Pega o nome da coluna correta
             coluna_df = mapa_filtro[tipo_filtro]
-            
-            # Pega as opções únicas e ordenadas
-            opcoes = sorted(df[coluna_df].unique())
-            
-            item_selecionado = st.selectbox(
-                f"2. Selecione o {tipo_filtro}:",
-                options=['Selecione'] + opcoes
-            )
+            if coluna_df in df.columns:
+                opcoes = sorted(df[coluna_df].dropna().unique())
+                item_selecionado = st.selectbox(f"Selecione o {tipo_filtro}:", options=['Selecione'] + opcoes)
+            else:
+                st.warning(f"Coluna {coluna_df} não encontrada.")
             
     return tipo_filtro, item_selecionado
 
+# --- CONFIGURAÇÃO DA PÁGINA ---
 
-# --- Configuração da Página ---
+st.set_page_config(layout="wide", page_title="Planejador de Disciplinas")
 
-st.set_page_config(layout="wide", page_title="Selecionar Disciplinas")
-
-# 1. INICIALIZA O SESSION STATE
-# Usamos um set() para guardar os códigos das disciplinas selecionadas
 if 'selecionadas' not in st.session_state:
     st.session_state.selecionadas = set()
 
-st.title("Seletor de Disciplinas da Pós-Graduação")
-st.markdown(
-    "Use os filtros para encontrar as disciplinas e clique nas caixas "
-    "de seleção. O total de créditos será calculado abaixo."
-)
+st.title("Planejador de Disciplinas & Visualização de Rede")
 
 df = get_data()
 
 if df.empty:
-    st.error("Não foi possível carregar os dados. Verifique o console para mais detalhes.")
+    st.error("Não foi possível carregar os dados.")
 else:
-    
-    # --- INÍCIO DA CORREÇÃO ---
-    # 1. Define a função de callback que fará a lógica de atualização.
+    # --- CALLBACK ---
     def atualizar_selecao(df_tabela_atual):
-        """
-        Callback para atualizar o session_state diretamente com base
-        nas edições feitas no st.data_editor.
-        """
-        # Acessa o dicionário de edições (a fonte da verdade)
-        # Verifica se a key existe antes de acessá-la
-        if "editor_disciplinas" not in st.session_state:
-            return
-            
+        if "editor_disciplinas" not in st.session_state: return
         edicoes = st.session_state["editor_disciplinas"]
-        
-        # Itera sobre as linhas que foram editadas
         for index_editado, edicao in edicoes.get('edited_rows', {}).items():
-            # Verifica se a coluna 'Selecionar' foi a que mudou
             if 'Selecionar' in edicao:
-                # Pega o código da disciplina usando o índice do dataframe original
-                # que foi passado para o editor
                 try:
                     codigo = df_tabela_atual.iloc[index_editado]['codigo']
-                except IndexError:
-                    # Pode acontecer se o dataframe for filtrado rapidamente
-                    continue 
-                    
-                # Atualiza o set principal no session_state
-                if edicao['Selecionar'] is True:
-                    st.session_state.selecionadas.add(codigo)
-                elif edicao['Selecionar'] is False:
-                    st.session_state.selecionadas.discard(codigo) # Usar discard é mais seguro que remove
-    # --- FIM DA CORREÇÃO ---
+                    if edicao['Selecionar']: st.session_state.selecionadas.add(codigo)
+                    else: st.session_state.selecionadas.discard(codigo)
+                except IndexError: continue
 
+    # --- ÁREA DE FILTROS E TABELA ---
     tipo_filtro, item_selecionado = setup_new_filters(df)
     
-    st.header("Resultados da Filtragem")
+    df_resultado = pd.DataFrame() # Inicializa vazio
 
-    # Verifica se o usuário selecionou um item válido
     if item_selecionado and item_selecionado != 'Selecione':
-        
-        # Filtra o DataFrame com base na escolha
         coluna_df = {
-            'Comissão': 'commissao',
-            'Programa': 'nome_programa',
-            'Área de Concentração': 'area_concentracao'
+            'Comissão': 'commissao', 'Programa': 'nome_programa', 'Área de Concentração': 'area_concentracao'
         }[tipo_filtro]
         
         df_resultado = df[df[coluna_df] == item_selecionado]
         
-        if df_resultado.empty:
-            st.warning("Nenhuma disciplina encontrada para o item selecionado.")
-        else:
-            # Prepara o DataFrame para o data_editor
-            df_selecao = df_resultado[
-                ['codigo', 'disciplina', 'n_creditos']
-            ].copy().reset_index(drop=True) # Reseta o index para garantir que iloc[index_editado] funcione
-            
-            # ADICIONA A COLUNA 'Selecionar'
-            df_selecao['Selecionar'] = df_selecao['codigo'].apply(
-                lambda x: x in st.session_state.selecionadas
-            )
-            
-            # Reordena colunas para 'Selecionar' vir primeiro
-            df_selecao = df_selecao[['Selecionar', 'codigo', 'disciplina', 'n_creditos']]
+        if not df_resultado.empty:
+            # Preparar dados para editor
+            cols = ['codigo', 'disciplina', 'n_creditos']
+            df_selecao = df_resultado[cols].copy().reset_index(drop=True)
+            df_selecao['Selecionar'] = df_selecao['codigo'].apply(lambda x: x in st.session_state.selecionadas)
+            df_selecao = df_selecao[['Selecionar'] + cols]
 
-            # Usa st.data_editor para criar a tabela interativa
+            st.markdown("### 2. Seleção de Disciplinas")
             st.data_editor(
                 df_selecao,
                 hide_index=True,
                 use_container_width=True,
-                column_config={
-                    "Selecionar": st.column_config.CheckboxColumn(
-                        "Selecionar", 
-                        help="Marque para somar os créditos."
-                    ),
-                    "codigo": "Código",
-                    "disciplina": "Disciplina",
-                    "n_creditos": "Créditos",
-                },
-                # --- APLICAÇÃO DA CORREÇÃO ---
-                key="editor_disciplinas",  # Chave única para o editor
-                on_change=atualizar_selecao, # Define a função de callback
-                args=(df_selecao,) # Passa o dataframe filtrado para o callback
-                # --- FIM DA APLICAÇÃO ---
+                column_config={"Selecionar": st.column_config.CheckboxColumn("Selecionar", width="small")},
+                key="editor_disciplinas",
+                on_change=atualizar_selecao,
+                args=(df_selecao,)
             )
-            
-    else:
-        st.info(
-            "Por favor, selecione um **Tipo de Filtro** e um **Item** "
-            "para exibir as disciplinas."
-        )
+        else:
+            st.warning("Nenhuma disciplina encontrada para este filtro.")
 
-    # 4. DASHBOARD DE CRÉDITOS (SEMPRE VISÍVEL)
+    # --- ÁREA DE CRÉDITOS (RESTORED) ---
     st.divider()
-    st.header("Resumo Total dos Créditos")
+    st.markdown("### 3. Resumo de Créditos")
     
-    soma_total = 0
-    soma_obrigatorias = 0
-    df_total_selecionado = pd.DataFrame(columns=['codigo', 'disciplina', 'n_creditos']) # Inicializa vazio
-    
-    if not st.session_state.selecionadas:
-        st.info("Nenhuma disciplina selecionada.")
-    else:
-        # Filtra o DataFrame *completo* (df) com base em TUDO que está no session_state
-        df_total_selecionado = df[df['codigo'].isin(st.session_state.selecionadas)]
-        soma_total = df_total_selecionado['n_creditos'].sum()
+    df_sel_total = df[df['codigo'].isin(st.session_state.selecionadas)]
+    soma_total = df_sel_total['n_creditos'].sum()
+    soma_obrig = df_sel_total[df_sel_total['codigo'].isin(obrigatorias)]['n_creditos'].sum()
 
-        # --- INÍCIO DA NOVA LÓGICA ---
-        # Filtra as selecionadas para achar as obrigatórias
-        df_obrigatorias_selecionadas = df_total_selecionado[
-            df_total_selecionado['codigo'].isin(obrigatorias)
-        ]
-        soma_obrigatorias = df_obrigatorias_selecionadas['n_creditos'].sum()
-        # --- FIM DA NOVA LÓGICA ---
-
-    # Exibe as métricas lado a lado
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric(
-            f"Créditos Totais (Meta: {creditos_necessarios})", 
-            value=f"{soma_total} / {creditos_necessarios}"
-        )
-    with col2:
-        st.metric(
-            f"Créditos Obrigatórios (Meta: {creditos_obrigatorios})", 
-            value=f"{soma_obrigatorias} / {creditos_obrigatorios}"
-        )
-
-    # Barras de Progresso
-    progresso_total = 0.0
-    if creditos_necessarios > 0: # Evita divisão por zero
-        progresso_total = min(soma_total / creditos_necessarios, 1.0)
+    # Métricas e Barras
+    c1, c2 = st.columns(2)
+    with c1:
+        st.metric(f"Créditos Totais (Meta: {creditos_necessarios})", f"{soma_total}")
+        prog_total = min(soma_total / creditos_necessarios, 1.0) if creditos_necessarios > 0 else 0
+        st.progress(prog_total)
         
-    st.progress(progresso_total, text=f"{(progresso_total * 100):.1f}% da meta total atingida")
+    with c2:
+        st.metric(f"Créditos Obrigatórios (Meta: {creditos_obrigatorios})", f"{soma_obrig}")
+        prog_obrig = min(soma_obrig / creditos_obrigatorios, 1.0) if creditos_obrigatorios > 0 else 0
+        st.progress(prog_obrig)
 
-    progresso_obrigatorias = 0.0
-    if creditos_obrigatorios > 0: # Evita divisão por zero
-        progresso_obrigatorias = min(soma_obrigatorias / creditos_obrigatorios, 1.0)
-
-    st.progress(progresso_obrigatorias, text=f"{(progresso_obrigatorias * 100):.1f}% da meta obrigatória atingida")
-
-    # 5. COMPARAÇÃO (COM SEÇÃO SEPARADA PARA OBRIGATÓRIAS)
+    # --- VALIDAÇÕES DE STATUS (RESTORED) ---
     st.subheader("Status das Metas")
     
-    # Check de Créditos Obrigatórios
-    if soma_obrigatorias >= creditos_obrigatorios:
-        st.success(f"✔ Parabéns! Você atingiu a meta de {creditos_obrigatorios} créditos obrigatórios.")
+    # 1. Check de Créditos Obrigatórios
+    if soma_obrig >= creditos_obrigatorios:
+        st.success(f"✔ Meta de Obrigatórias Atingida! ({soma_obrig}/{creditos_obrigatorios})")
     else:
-        st.warning(f"✖ Faltam {creditos_obrigatorios - soma_obrigatorias} créditos obrigatórios.")
+        st.warning(f"✖ Faltam {creditos_obrigatorios - soma_obrig} créditos obrigatórios.")
 
-    # Check de Créditos Totais
+    # 2. Check de Créditos Totais
     if soma_total >= creditos_necessarios:
-        st.success(f"✔ Parabéns! Você atingiu a meta de {creditos_necessarios} créditos totais.")
+        st.success(f"✔ Meta de Créditos Totais Atingida! ({soma_total}/{creditos_necessarios})")
     else:
         st.warning(f"✖ Faltam {creditos_necessarios - soma_total} créditos totais.")
 
 
-    # LISTA DE DISCIPLINAS
-    st.subheader("Disciplinas Selecionadas")
-    with st.expander(f"Mostrar as {len(df_total_selecionado)} disciplinas selecionadas..."):
-        if df_total_selecionado.empty:
-            st.write("Nenhuma disciplina selecionada.")
+    # --- LISTA DE DISCIPLINAS SELECIONADAS ---
+    if not df_sel_total.empty:
+        with st.expander(f"Ver lista das {len(df_sel_total)} disciplinas selecionadas"):
+            st.dataframe(df_sel_total[['codigo', 'disciplina', 'n_creditos']], hide_index=True, use_container_width=True)
+            
+            # Botão Limpar
+            if st.button("Limpar Todas as Seleções"):
+                st.session_state.selecionadas.clear()
+                st.rerun()
+
+    # --- ÁREA DO GRAFO (CORRIGIDA) ---
+    st.divider()
+    st.markdown("### 4. Visualização de Rede (Docentes x Disciplinas)")
+    
+    with st.expander("🕸️ Ver Grafo Interativo do Filtro Atual", expanded=True):
+        if df_resultado.empty:
+            st.info("Utilize os filtros no topo da página (Passo 1) para gerar o grafo de conexões.")
         else:
-            # Prepara o DF para exibição, adicionando a coluna de status
-            df_display = df_total_selecionado[['codigo', 'disciplina', 'n_creditos']].copy()
-            df_display['Status'] = df_display['codigo'].apply(
-                lambda x: 'Obrigatória' if x in obrigatorias else 'Opcional'
-            )
-            df_display = df_display[['codigo', 'disciplina', 'n_creditos', 'Status']] # Reordena
-
-            st.dataframe(
-                df_display,
-                hide_index=True,
-                use_container_width=True
-            )
-
-    # Botão para limpar a seleção
-    if st.button("Limpar todas as seleções", use_container_width=True):
-        st.session_state.selecionadas.clear()
-        st.rerun()
+            st.caption("**Legenda:** 🟣 Círculos = Disciplinas (Cores = Comunidades) | ♦️ Losangos Cinzas = Docentes")
+            renderizar_grafo_interativo(df_resultado)

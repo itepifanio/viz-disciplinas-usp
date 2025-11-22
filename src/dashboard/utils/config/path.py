@@ -20,3 +20,6 @@ graph_data_path = BASE_DIR / "graph.graphml"
 
 # community data path
 community_data_path = BASE_DIR / "community.pickle"
+
+# bipartite graph data path
+bipartite_graph_data_path = BASE_DIR / "bipartite_graph.graphml"

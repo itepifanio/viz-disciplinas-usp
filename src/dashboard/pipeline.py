@@ -1,25 +1,17 @@
-"""
-Engloba todos os transformadores de dados.
-
-Transforma os dados preprocessados:
-1. Em embeddings
-2. Em projeções UMAP
-3. Em grafos k-NN
-4. Em comunidades (Louvain)
-"""
-
 import pandas as pd
 from typing import Optional
-
 from transformer.embedding import DataEmbedder
 from transformer.umap import UmapTransformer
 from transformer.graph import KNNGraphBuilder
-from transformer.community import LouvainCommunityDetector # 1. IMPORTADO
+from transformer.responsaveis import DocenteDisciplinaGraphBuilder 
+from transformer.community import LouvainCommunityDetector
+from transformer.dashboard_generator import DashboardArtifactGenerator 
 from utils.config.model import TEXT_COL, MODEL_EMBEDDING
 from utils.config.path import (
     umap_data_path, 
     graph_data_path,
-    community_data_path, # 1. IMPORTADO
+    community_data_path,
+    bipartite_graph_data_path, 
     preprocessed_data_path,
     scrapper_data_path
 )
@@ -38,7 +30,10 @@ class DataTransformerPipeline:
         self._df = df
         self._umapper: Optional[UmapTransformer] = None
         self._grapher: Optional[KNNGraphBuilder] = None
-        self._detector: Optional[LouvainCommunityDetector] = None # Adicionado
+        self._bipartite_grapher: Optional[DocenteDisciplinaGraphBuilder] = None 
+        self._detector: Optional[LouvainCommunityDetector] = None
+        # 2. ADICIONADO: Atributo para o gerador
+        self._dashboard_gen: Optional[DashboardArtifactGenerator] = None
         
     def _execute(self) -> None:
         """
@@ -46,19 +41,35 @@ class DataTransformerPipeline:
         1. Gera embeddings.
         2. Prepara o UMAP.
         3. Prepara o Grafo k-NN.
+        4. Prepara o Grafo Bipartido (Docentes).
         """
+        # --- Preparação de Texto e IDs ---
         to_embbed = self._df[TEXT_COL].fillna('').agg(' '.join, axis=1).tolist()
+        node_ids = self._df['codigo'].tolist()
+        node_labels = self._df['disciplina'].fillna('Desconhecido').tolist()
         
+        # --- 1. Embeddings ---
         embedder = DataEmbedder(model_name=MODEL_EMBEDDING, texts=to_embbed)
         embeddings = embedder.transform() 
 
+        # --- 2. UMAP ---
         self._umapper = UmapTransformer(embeddings)
-        node_ids = self._df['codigo'].tolist()
-        node_labels = self._df['disciplina'].fillna('Desconhecido').tolist()
+        
+        # --- 3. Grafo k-NN ---
         self._grapher = KNNGraphBuilder(
             embeddings, 
             node_ids=node_ids, 
             node_labels=node_labels,
+        )
+
+        # --- 4. Grafo Bipartido (Novo) ---
+        # Tratamento para garantir que seja string e lidar com NaNs
+        docentes_data = self._df['docentes_responsaveis'].fillna('').astype(str).tolist()
+        
+        self._bipartite_grapher = DocenteDisciplinaGraphBuilder(
+            node_ids=node_ids,
+            node_labels=node_labels,
+            docentes_data=docentes_data
         )
 
     def __call__(self) -> None:
@@ -66,16 +77,22 @@ class DataTransformerPipeline:
         Executa o pipeline de transformação de dados e salva os artefatos.
         """
         
-        # 2. VERIFICAÇÃO ATUALIZADA
+        # 5. VERIFICAÇÃO: Adicionada checagem do novo path
         if (umap_data_path.exists() and 
             graph_data_path.exists() and 
-            community_data_path.exists()):
+            community_data_path.exists() and
+            bipartite_graph_data_path.exists()):
+            
+            # 3. ADICIONADO (CASO 1): Se arquivos existem, apenas roda o dashboard e retorna
+            self._run_dashboard_gen()
             return
 
         self._execute()
         
-        if self._umapper is None or self._grapher is None:
-            raise RuntimeError("Pipeline não executado. Umapper ou Grapher estão Nulos.")
+        if (self._umapper is None or 
+            self._grapher is None or 
+            self._bipartite_grapher is None):
+            raise RuntimeError("Pipeline incompleto. Transformadores estão Nulos.")
 
         # Etapa 1: Salvar UMAP
         self._umapper.to_file(
@@ -86,16 +103,35 @@ class DataTransformerPipeline:
             }
         )
         
-        # Etapa 2: Salvar Grafo
+        # Etapa 2: Salvar Grafo k-NN
         self._grapher.to_file(graph_data_path)
+
+        # Etapa 3: Salvar Grafo Bipartido (Novo)
+        self._bipartite_grapher.to_file(bipartite_graph_data_path)
         
-        # 3. ETAPA DE COMUNIDADE ADICIONADA
-        # Esta etapa depende que 'graph_data_path' tenha sido salvo.
+        # Etapa 4: Detecção de Comunidades
+        # Esta etapa depende que 'graph_data_path' tenha sido salvo (k-NN).
         self._detector = LouvainCommunityDetector(
             graph_path=graph_data_path, 
             random_state=42
         )
         self._detector.to_file(community_data_path)
+
+        # 3. ADICIONADO (CASO 2): Roda o dashboard ao final do processo
+        self._run_dashboard_gen()
+
+    def _run_dashboard_gen(self):
+        """Helper simples para instanciar e rodar o gerador"""
+        # Define output dir fixo como subpasta 'grade_horaria'
+        out_dir = preprocessed_data_path.parent / 'grade_horaria'
+        
+        self._dashboard_gen = DashboardArtifactGenerator(
+            raw_data_path=preprocessed_data_path,
+            community_path=community_data_path,
+            original_knn_graph_path=graph_data_path,
+            output_dir=out_dir
+        )
+        self._dashboard_gen.run()
 
 
 if __name__ == "__main__":
