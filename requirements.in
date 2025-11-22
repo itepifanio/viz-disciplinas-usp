@@ -11,3 +11,4 @@ streamlit
 umap-learn
 networkx
 sentence-transformers>=5.1.2
+streamlit-agraph==0.0.45
