@@ -15,5 +15,8 @@ preprocessed_data_path = BASE_DIR / "output.pickle"
 # umap pickled data path
 umap_data_path = BASE_DIR / "umap.pickle"
 
+# tsne pickled data path
+tsne_data_path = BASE_DIR / "tsne.pickle"
+
 # graph html data path
 graph_data_path = BASE_DIR / "graph.graphml"
