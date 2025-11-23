@@ -285,7 +285,7 @@ class JanusDisciplinasSpider(Spider):
         )
         docentes_responsaveis = ' | '.join([
             node.css('::text').get(default='').strip() for node in docentes_nodes
-        ])
+        ]) # TODO: validar se isso aqui pega quando tem 1 docente responsável
 
         ementa_idiomas = ' | '.join(
             response.xpath(
