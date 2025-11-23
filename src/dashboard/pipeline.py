@@ -69,7 +69,6 @@ class DataTransformerPipeline:
 
         # --- 4. Grafo Bipartido ---
         docentes_data = self._df['docentes_responsaveis'].fillna('').astype(str).tolist()
-        
         self._bipartite_grapher = DocenteDisciplinaGraphBuilder(
             node_ids=node_ids,
             node_labels=node_labels,
@@ -84,7 +83,7 @@ class DataTransformerPipeline:
             tsne_data_path.exists() and
             graph_data_path.exists() and
             community_data_path.exists()):
-            self._run_dashboard_gen()
+            # Se os arquivos já existem, não precisa reprocessar tudo
             return
 
         self._execute()
@@ -126,7 +125,7 @@ class DataTransformerPipeline:
 
     def _run_dashboard_gen(self):
         """Helper simples para instanciar e rodar o gerador"""
-        # TODO: do we need to read the data from file? The pipeline already has the df and more.
+        # TODO: precisamos ler os dados do arquivo? A pipeline já tem o grafo, dataframe, etc
         self._dashboard_gen = DashboardArtifactGenerator(
             raw_data_path=preprocessed_data_path,
             community_path=community_data_path,
@@ -137,7 +136,6 @@ class DataTransformerPipeline:
 
 
 if __name__ == "__main__":
-    # Create the reader and obtain the preprocessed DataFrame via the
     reader = DataReader(
         scrapped_data_path=scrapper_data_path,
         output_dataframe_path=preprocessed_data_path
