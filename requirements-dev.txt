@@ -256,6 +256,7 @@ networkx==3.5
     # via
     #   -r requirements.in
     #   python-louvain
+    #   streamlit-agraph
     #   torch
 nltk==3.9.2
     # via -r requirements.in
@@ -400,7 +401,9 @@ pynndescent==0.5.13
 pyopenssl==25.3.0
     # via scrapy
 pyparsing==3.2.5
-    # via matplotlib
+    # via
+    #   matplotlib
+    #   rdflib
 pypydispatcher==2.1.2 ; platform_python_implementation == 'PyPy'
     # via scrapy
 python-dateutil==2.9.0.post0
@@ -432,6 +435,8 @@ pyzmq==27.1.0
     #   jupyter-server
 queuelib==1.8.0
     # via scrapy
+rdflib==7.4.0
+    # via streamlit-agraph
 referencing==0.37.0
     # via
     #   jsonschema
@@ -504,6 +509,10 @@ soupsieve==2.8
 stack-data==0.6.3
     # via ipython
 streamlit==1.51.0
+    # via
+    #   -r requirements.in
+    #   streamlit-agraph
+streamlit-agraph==0.0.45
     # via -r requirements.in
 sympy==1.14.0
     # via torch
