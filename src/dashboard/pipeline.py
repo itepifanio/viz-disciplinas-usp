@@ -11,9 +11,6 @@ from utils.config.model import TEXT_COL, MODEL_EMBEDDING
 from utils.config.path import (
     umap_data_path,
     tsne_data_path,
-    graph_data_path,
-    community_data_path,
-    bipartite_graph_data_path, 
     preprocessed_data_path,
     scrapper_data_path,
     BASE_DIR,
@@ -35,7 +32,6 @@ class DataTransformerPipeline:
         self._grapher: Optional[KNNGraphBuilder] = None
         self._bipartite_grapher: Optional[DocenteDisciplinaGraphBuilder] = None 
         self._detector: Optional[LouvainCommunityDetector] = None
-        # 2. ADICIONADO: Atributo para o gerador
         self._dashboard_gen: Optional[DashboardArtifactGenerator] = None
 
     def _execute(self) -> None:
@@ -54,20 +50,18 @@ class DataTransformerPipeline:
         embedder = DataEmbedder(model_name=MODEL_EMBEDDING, texts=to_embbed)
         embeddings = embedder.transform() 
 
-        # --- 2. UMAP ---
+        # --- 2. UMAP and t-SNE ---
         self._umapper = UmapTransformer(embeddings)
         self._tsner = TsneTransformer(embeddings)
         node_ids = self._df['codigo'].tolist()
         node_labels = self._df['disciplina'].fillna('Desconhecido').tolist()
         
-        # --- 3. Grafo k-NN ---
+        # --- 3. Grafo Bipartido ---
         self._grapher = KNNGraphBuilder(
             embeddings,
             node_ids=node_ids,
             node_labels=node_labels,
         )
-
-        # --- 4. Grafo Bipartido ---
         docentes_data = self._df['docentes_responsaveis'].fillna('').astype(str).tolist()
         self._bipartite_grapher = DocenteDisciplinaGraphBuilder(
             node_ids=node_ids,
@@ -75,14 +69,18 @@ class DataTransformerPipeline:
             docentes_data=docentes_data
         )
 
+        # -- 4. Louvain community ---
+        self._detector = LouvainCommunityDetector(
+            graph=self._grapher.graph, 
+            random_state=42
+        )
+
     def __call__(self) -> None:
         """
         Executa o pipeline de transformação de dados e salva os artefatos.
         """
         if (umap_data_path.exists() and
-            tsne_data_path.exists() and
-            graph_data_path.exists() and
-            community_data_path.exists()):
+            tsne_data_path.exists()): # TODO: adicionar artefatos do dashboard
             # Se os arquivos já existem, não precisa reprocessar tudo
             return
 
@@ -111,29 +109,13 @@ class DataTransformerPipeline:
             }
         )
 
-        # Etapa 3: Detecção de comunidades
-        self._detector = LouvainCommunityDetector(
-            graph=self._grapher.graph, 
-            random_state=42
-        )
-        self._detector.to_file(community_data_path)
-        
-        # Etapa 4: Salvar Grafo Bipartido
-        self._bipartite_grapher.to_file(bipartite_graph_data_path)
-
-        self._run_dashboard_gen()
-
-    def _run_dashboard_gen(self):
-        """Helper simples para instanciar e rodar o gerador"""
-        # TODO: precisamos ler os dados do arquivo? A pipeline já tem o grafo, dataframe, etc
-        self._dashboard_gen = DashboardArtifactGenerator(
-            raw_data_path=preprocessed_data_path,
-            community_path=community_data_path,
-            original_knn_graph_path=graph_data_path,
+        # TODO: adaptar API do DashboardArtifactGenerator
+        DashboardArtifactGenerator(
+            df_raw=self._df,
+            df_comm=self._detector.dataframe,
+            knn_graph=self._grapher.graph,
             output_dir=BASE_DIR / 'grade_horaria'
-        )
-        self._dashboard_gen.run()
-
+        ).run()
 
 if __name__ == "__main__":
     reader = DataReader(

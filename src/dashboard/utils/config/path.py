@@ -17,12 +17,3 @@ umap_data_path = BASE_DIR / "umap.pickle"
 
 # tsne pickled data path
 tsne_data_path = BASE_DIR / "tsne.pickle"
-
-# graph html data path
-graph_data_path = BASE_DIR / "graph.graphml"
-
-# community data path
-community_data_path = BASE_DIR / "community.pickle"
-
-# bipartite graph data path
-bipartite_graph_data_path = BASE_DIR / "bipartite_graph.graphml"

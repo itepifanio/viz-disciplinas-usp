@@ -25,6 +25,7 @@ class LouvainCommunityDetector:
         self._graph = graph
         self._random_state = random_state
         self._partition: Optional[Dict[Any, int]] = None
+        self._dataframe: pd.DataFrame | None = None
 
     def _detect_communities(self) -> None:
         """Método interno para executar o algoritmo Louvain."""
@@ -32,6 +33,39 @@ class LouvainCommunityDetector:
             self._graph, 
             random_state=self._random_state
         )
+        
+    @property
+    def dataframe(self) -> pd.DataFrame:
+        if isinstance(self._dataframe, pd.DataFrame):
+            return self._dataframe
+
+        # 1. Garante que as comunidades foram detectadas
+        partition_map = self.partition
+        
+        # 2. Prepara os dados para o DataFrame
+        data_list = []
+        for node_id, attrs in self._graph.nodes(data=True):
+            data_list.append({
+                'codigo': node_id,
+                'disciplina': attrs.get('label', None),
+                'comunidade': partition_map.get(node_id, None)
+            })
+            
+        if not data_list:
+            # Se não houver dados, não cria o arquivo
+            return
+
+        df_out = pd.DataFrame(data_list)
+        
+        # 3. Converte a coluna de comunidade para o tipo 'category'
+        try:
+            df_out['comunidade'] = df_out['comunidade'].astype('Int64').astype('category')
+        except Exception:
+            df_out['comunidade'] = df_out['comunidade'].astype('category')
+            
+        self._dataframe = df_out
+        return self._dataframe
+    
 
     @property
     def partition(self) -> Dict[Any, int]:
@@ -56,35 +90,10 @@ class LouvainCommunityDetector:
         O DataFrame conterá as colunas: 'disciplina', 'codigo', 'comunidade'.
         
         Args:
-            path (Path): O caminho do arquivo .pickle de saída.
+            path: O caminho do arquivo .pickle de saída.
         """
         if path.exists():
             return # Sai silenciosamente se o arquivo já existe
-        
-        # 1. Garante que as comunidades foram detectadas
-        partition_map = self.partition
-        
-        # 2. Prepara os dados para o DataFrame
-        data_list = []
-        for node_id, attrs in self._graph.nodes(data=True):
-            data_list.append({
-                'codigo': node_id,
-                'disciplina': attrs.get('label', None),
-                'comunidade': partition_map.get(node_id, None)
-            })
-            
-        if not data_list:
-            # Se não houver dados, não cria o arquivo
-            return
 
-        df_out = pd.DataFrame(data_list)
-        
-        # 3. Converte a coluna de comunidade para o tipo 'category'
-        try:
-            df_out['comunidade'] = df_out['comunidade'].astype('Int64').astype('category')
-        except Exception:
-            df_out['comunidade'] = df_out['comunidade'].astype('category')
-
-        # 4. Salva em pickle
         path.parent.mkdir(parents=True, exist_ok=True)
-        df_out.to_pickle(path)
+        self.dataframe.to_pickle(path)
