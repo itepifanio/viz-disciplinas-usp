@@ -1,6 +1,6 @@
 from typing import Self
 from pathlib import Path
-
+import re
 import networkx as nx
 
 
@@ -31,70 +31,59 @@ class DocenteDisciplinaGraphBuilder:
     def graph(self) -> nx.Graph:
         if self._graph is None:
             self.transform()
-
         return self._graph
 
     def transform(self) -> None:
         """
         Processa as listas e constrói o grafo NetworkX.
-        
-        Cria arestas entre o ID da disciplina e o nome de cada docente encontrado
-        na string correspondente. Define o atributo 'bipartite' (0 para disciplina, 1 para docente).
+        Cria arestas entre o ID da disciplina e o nome de cada docente encontrado.
         """
         if self._graph is None:
             self._graph = nx.Graph()
 
-        # Itera sobre as disciplinas e a string de docentes correspondente
         for i, doc_str in enumerate(self._docentes_data):
-            
-            # Dados da Disciplina
+
+            # Dados da disciplina
             course_id = self._node_ids[i]
             course_label = self._node_labels[i]
 
-            # 1. Adiciona o nó da Disciplina (Bipartite 0)
-            # O check if exist é feito automaticamente pelo nx
+            # Nó da disciplina
             self._graph.add_node(
-                course_id, 
-                label=course_label, 
-                type='disciplina', 
+                course_id,
+                label=course_label,
+                type="disciplina",
                 bipartite=0
             )
 
-            # Se não houver docentes (NaN ou string vazia), pula para o próximo
+            # Se não houver docentes
             if not doc_str or not isinstance(doc_str, str):
                 continue
 
-            # 2. Processa os Docentes
-            lista_docentes = doc_str.split(self._separator)
-            
+            # Split flexível: aceita "|", " | ", "  |  ", "| ", etc.
+            lista_docentes = re.split(r"\s*\|\s*", doc_str)
+
             for docente in lista_docentes:
                 docente_nome = docente.strip()
-                
+
                 if not docente_nome:
                     continue
 
-                # Adiciona o nó do Docente (Bipartite 1)
-                # Usamos o nome como ID do nó
+                # Nó do docente
                 self._graph.add_node(
-                    docente_nome, 
-                    label=docente_nome, 
-                    type='docente', 
+                    docente_nome,
+                    label=docente_nome,
+                    type="docente",
                     bipartite=1
                 )
 
-                # 3. Cria a aresta (Disciplina <-> Docente)
+                # Aresta disciplina <-> docente
                 self._graph.add_edge(course_id, docente_nome)
 
     def to_file(self, path: Path) -> None:
         """
         Salva o grafo em um arquivo no formato GraphML.
         """
-        # Garante que o diretório pai existe (opcional, mas útil)
-        # path.parent.mkdir(parents=True, exist_ok=True)
-        
         if path.exists():
-            # Decisão de design: Sobrescrever ou retornar? 
-            # No seu código original retornava. Mantive o padrão.
             return
 
         nx.write_graphml(self.graph, path)

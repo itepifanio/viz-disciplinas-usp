@@ -5,7 +5,7 @@ from transformer.umap import UmapTransformer
 from transformer.graph import KNNGraphBuilder
 from transformer.responsaveis import DocenteDisciplinaGraphBuilder 
 from transformer.community import LouvainCommunityDetector
-from transformer.dashboard_generator import DashboardArtifactGenerator 
+from dataframe_grade_horaria import DashboardArtifactGenerator 
 from utils.config.model import TEXT_COL, MODEL_EMBEDDING
 from utils.config.path import (
     umap_data_path, 
