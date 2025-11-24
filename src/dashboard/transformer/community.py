@@ -10,29 +10,22 @@ class LouvainCommunityDetector:
     o resultado (disciplina, codigo, comunidade) em um arquivo .pickle.
     """
     
-    def __init__(self, 
-                 graph_path: Path, 
-                 random_state: int = 42):
+    def __init__(
+        self, 
+        graph: nx.Graph, 
+        random_state: int = 42
+    ) -> None:
         """
         Inicializa o detector de comunidades.
 
         Args:
-            graph_path (Path): Caminho para o arquivo do grafo (.graphml).
+            graph: KNN graph separated
             random_state (int): Seed para reprodutibilidade do algoritmo.
         """
-        if not graph_path.exists():
-            raise FileNotFoundError(f"Arquivo do grafo não encontrado em: {graph_path}")
-
-        try:
-            self._graph = nx.read_graphml(graph_path)
-        except Exception as e:
-            raise IOError(f"Falha ao ler o arquivo do grafo em {graph_path}. Erro: {e}")
-
-        if self._graph is None:
-            raise ValueError(f"O grafo carregado de {graph_path} é Nulo.")
-        
+        self._graph = graph
         self._random_state = random_state
         self._partition: Optional[Dict[Any, int]] = None
+        self._dataframe: pd.DataFrame | None = None
 
     def _detect_communities(self) -> None:
         """Método interno para executar o algoritmo Louvain."""
@@ -40,35 +33,12 @@ class LouvainCommunityDetector:
             self._graph, 
             random_state=self._random_state
         )
-
+        
     @property
-    def partition(self) -> Dict[Any, int]:
-        """
-        Retorna a partição de comunidade (dicionário {node: community_id}).
+    def dataframe(self) -> pd.DataFrame:
+        if isinstance(self._dataframe, pd.DataFrame):
+            return self._dataframe
 
-        Executa a detecção na primeira vez que esta property é acessada.
-        """
-        if self._partition is None:
-            self._detect_communities()
-        
-        if self._partition is None:
-            # Isso só aconteceria se _detect_communities falhasse em atribuir
-            raise RuntimeError("Falha na detecção. A partição ainda é Nula.")
-            
-        return self._partition
-
-    def to_file(self, path: Path) -> None:
-        """
-        Gera o DataFrame de comunidades e o salva em um arquivo pickle.
-
-        O DataFrame conterá as colunas: 'disciplina', 'codigo', 'comunidade'.
-        
-        Args:
-            path (Path): O caminho do arquivo .pickle de saída.
-        """
-        if path.exists():
-            return # Sai silenciosamente se o arquivo já existe
-        
         # 1. Garante que as comunidades foram detectadas
         partition_map = self.partition
         
@@ -85,15 +55,45 @@ class LouvainCommunityDetector:
             # Se não houver dados, não cria o arquivo
             return
 
-        # 3. Cria o DataFrame
         df_out = pd.DataFrame(data_list)
         
-        # 4. Converte a coluna de comunidade para o tipo 'category'
+        # 3. Converte a coluna de comunidade para o tipo 'category'
         try:
             df_out['comunidade'] = df_out['comunidade'].astype('Int64').astype('category')
         except Exception:
             df_out['comunidade'] = df_out['comunidade'].astype('category')
+            
+        self._dataframe = df_out
+        return self._dataframe
+    
 
-        # 5. Salva em pickle
+    @property
+    def partition(self) -> Dict[Any, int]:
+        """
+        Retorna a partição de comunidade (dicionário {node: community_id}).
+
+        Executa a detecção na primeira vez que esta property é acessada.
+        """
+        if self._partition is None:
+            self._detect_communities()
+        
+        if self._partition is None:
+            # Isso só aconteceria se _detect_communities falhar em atribuir
+            raise RuntimeError("Falha na detecção. A partição ainda é Nula.")
+
+        return self._partition
+
+    def to_file(self, path: Path) -> None:
+        """
+        Gera o DataFrame de comunidades e o salva em um arquivo pickle.
+
+        O DataFrame conterá as colunas: 'disciplina', 'codigo', 'comunidade'.
+        
+        Args:
+            path: O caminho do arquivo .pickle de saída.
+        """
+        if path.exists():
+            return # Sai silenciosamente se o arquivo já existe
+
         path.parent.mkdir(parents=True, exist_ok=True)
-        df_out.to_pickle(path)
+        self.dataframe.to_pickle(path)

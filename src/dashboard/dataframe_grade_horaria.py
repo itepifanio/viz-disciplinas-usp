@@ -1,25 +1,32 @@
 import pandas as pd
 import networkx as nx
 from pathlib import Path
-from typing import List
+from networkx import Graph
 from utils.config.subjects import obrigatorias
 
+# TODO: refatorar para seguir a API lazy loading com .to_file()
 class DashboardArtifactGenerator:
     def __init__(
         self,
-        raw_data_path: Path,
-        community_path: Path,
-        original_knn_graph_path: Path,
+        df_raw: pd.DataFrame,
+        df_comm: pd.DataFrame,
+        knn_graph: Graph,
         output_dir: Path
     ):
         """
         Classe responsável por gerar os arquivos finais consumidos pelo Dashboard.
-        """
-        self.raw_path = raw_data_path
-        self.comm_path = community_path
-        self.knn_graph_path = original_knn_graph_path
-        self.output_dir = output_dir
         
+        Args:
+            df_raw: DataFrame principal com os dados do scrap pré-processados.
+            df_comm: DataFrame com as informações de comunidade extraídas via Louvain.
+            knn_graph: Grafo k-NN original das disciplinas.
+            output_dir: Diretório onde os artefatos serão salvos.
+        """
+        self._df_raw = df_raw
+        self._df_comm = df_comm
+        self._knn_graph = knn_graph
+        self.output_dir = output_dir
+
         # Configuração hardcoded dos filtros
         self.institutos_alvo = [
             "Instituto de Ciências Matemáticas e de Computação",
@@ -60,13 +67,9 @@ class DashboardArtifactGenerator:
 
     def _gerar_dataset_dashboard(self) -> pd.DataFrame:
         """Gera o dataset unificado tratando colisões de nomes."""
-        if not self.raw_path.exists() or not self.comm_path.exists():
-            raise FileNotFoundError("Arquivos de entrada (raw ou comunidade) não encontrados.")
+        df_main = self._df_raw.copy()
+        df_comm = self._df_comm.copy()
 
-        df_main = pd.read_pickle(self.raw_path)
-        df_comm = pd.read_pickle(self.comm_path)
-
-        # Tratamento de chaves
         df_main['codigo'] = df_main['codigo'].astype(str).str.strip()
         
         if 'codigo' not in df_comm.columns and df_comm.index.name == 'codigo':
@@ -130,12 +133,9 @@ class DashboardArtifactGenerator:
         return G
 
     def _enriquecer_grafo_disciplinas(self, df: pd.DataFrame) -> nx.Graph:
-        """Enriquece o grafo k-NN existente"""
-        if not self.knn_graph_path.exists():
-            raise FileNotFoundError(f"Grafo KNN original não encontrado: {self.knn_graph_path}")
-            
-        G = nx.read_graphml(self.knn_graph_path)
-        
+        """Enriquece o grafo k-NN existente"""            
+        G = self._knn_graph.copy()
+
         # Filtra nós
         codigos_validos = set(df['codigo'])
         nos_remover = [n for n in G.nodes() if str(n).strip() not in codigos_validos]
@@ -158,4 +158,5 @@ class DashboardArtifactGenerator:
                     'institute': comissao_nome,
                     'type': 'disciplina'
                 })
+
         return G
