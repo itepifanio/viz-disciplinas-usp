@@ -127,32 +127,10 @@ class DataTransformerPipeline:
             output_dir=BASE_DIR / 'grade_horaria'
         ).run()
 
-        # Etapa 3: Salvar Grafo Bipartido (Novo)
-        self._bipartite_grapher.to_file(bipartite_graph_data_path)
-        
-        # Etapa 4: Detecção de Comunidades
-        # Esta etapa depende que 'graph_data_path' tenha sido salvo (k-NN).
-        self._detector = LouvainCommunityDetector(
-            graph_path=graph_data_path, 
-            random_state=42
-        )
-        self._detector.to_file(community_data_path)
 
         # 3. ADICIONADO (CASO 2): Roda o dashboard ao final do processo
         self._run_dashboard_gen()
 
-    def _run_dashboard_gen(self):
-        """Helper simples para instanciar e rodar o gerador"""
-        # Define output dir fixo como subpasta 'grade_horaria'
-        out_dir = preprocessed_data_path.parent / 'grade_horaria'
-        
-        self._dashboard_gen = DashboardArtifactGenerator(
-            raw_data_path=preprocessed_data_path,
-            community_path=community_data_path,
-            original_knn_graph_path=graph_data_path,
-            output_dir=out_dir
-        )
-        self._dashboard_gen.run()
 
 
 if __name__ == "__main__":

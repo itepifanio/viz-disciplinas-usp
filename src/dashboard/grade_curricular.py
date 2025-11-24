@@ -258,22 +258,43 @@ with kpi_container:
         st.progress(min(soma_obrig/creditos_obrigatorios, 1.0) if creditos_obrigatorios else 0)
 
     with c3:
-        # Mini Pie Chart de Carga
+        # Mini Pie Chart de Carga - Lógica ORIGINAL restaurada
         if not df_sel.empty:
-            ct = df_sel['carga_teorica'].sum() if 'carga_teorica' in df_sel.columns else 0
-            cp = df_sel['carga_pratica'].sum() if 'carga_pratica' in df_sel.columns else 0
-            ce = df_sel['carga_estudo'].sum() if 'carga_estudo' in df_sel.columns else 0
-            vals = [ct, cp, ce]
-            if sum(vals) > 0:
-                fig, ax = plt.subplots(figsize=(2,2))
-                ax.pie(vals, colors=['#3366CC', '#DC3912', '#109618'], startangle=90)
-                # Buraco no meio
-                centre_circle = plt.Circle((0,0),0.70,fc='white')
-                fig.gca().add_artist(centre_circle)
+            c_teorica = df_sel['carga_teorica'].sum() if 'carga_teorica' in df_sel.columns else 0
+            c_pratica = df_sel['carga_pratica'].sum() if 'carga_pratica' in df_sel.columns else 0
+            c_estudo = df_sel['carga_estudo'].sum() if 'carga_estudo' in df_sel.columns else 0
+            
+            if 'carga_total' in df_sel.columns:
+                total_duracao = df_sel['carga_total'].sum()
+            else:
+                total_duracao = c_teorica + c_pratica + c_estudo
+            
+            if total_duracao > 0:
+                valores = [c_teorica, c_pratica, c_estudo]
+                colors = ['#3366CC', '#DC3912', '#109618']
+                
+                # Figura um pouco menor para caber no header, mas código igual
+                fig, ax = plt.subplots(figsize=(3, 3)) 
+                
+                ax.pie(valores, autopct='%1.0f%%', startangle=90, colors=colors, 
+                       wedgeprops=dict(width=0.35, edgecolor='w'), pctdistance=0.85)
+                
+                # Texto no centro
+                ax.text(0, 0, f"{int(total_duracao)}h", ha='center', va='center', 
+                        fontsize=14, fontweight='bold', color='#2c3e50')
+                
                 st.pyplot(fig, use_container_width=False)
-                st.caption(f"Total: {int(sum(vals))}h")
+                
+                # Legenda original com 3 colunas e HTML spans
+                sc1, sc2, sc3 = st.columns(3)
+                sc1.caption(f"<span style='color:#3366CC'>⬤</span> Teórica: {int(c_teorica)}", unsafe_allow_html=True)
+                sc2.caption(f"<span style='color:#DC3912'>⬤</span> Prática: {int(c_pratica)}", unsafe_allow_html=True)
+                sc3.caption(f"<span style='color:#109618'>⬤</span> Estudo: {int(c_estudo)}", unsafe_allow_html=True)
             else:
                 st.caption("Sem carga horária")
+        else:
+            st.caption("Sem disciplinas selecionadas")
+
 
 st.divider()
 

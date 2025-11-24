@@ -4,10 +4,11 @@ from pathlib import Path
 import networkx as nx
 # %%
 
-df_path = Path('src\data\grade_horaria\dados_dashboard_completo.pickle')
+df_path = Path(r'src\data\umap.pickle')
+
 df = pd.read_pickle(df_path)
 # %%
-print(df[df['codigo']=='SMA5996'][['docentes_responsaveis', 'disciplina', 'codigo', 'carga_total', 'n_creditos']])
+# print(df[df['codigo']=='SMA5996'][['comissao', 'disciplina', 'codigo', 'carga_total', 'n_creditos']])
 print(df.columns)
 
 # %%
