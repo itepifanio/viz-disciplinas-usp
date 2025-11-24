@@ -17,7 +17,7 @@ class KNNGraphBuilder:
         embeddings: np.ndarray,
         node_ids: list[str], 
         node_labels: list[str], 
-        k: int = 3
+        k: int = 5
     ) -> None:
         """
         Utiliza algoritmos não-supervisionados para construir um grafo k-NN a partir de embeddings.
