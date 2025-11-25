@@ -1,4 +1,4 @@
-# Viz Dsiciplinas USP
+# Viz Disciplinas USP
 
 Esse projeto consiste no scrap das páginas das disciplinas da pós-graduação da USP e a
 visualização dos dados.
